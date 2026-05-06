@@ -9,40 +9,6 @@ on:
     branches: [ main ]
 
 jobs:
-  # This job runs on EVERY push and PR to ensure code quality
-  test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: true
-
-      - name: Run Tests
-        run: make test
-
-To include binary assets in your release, we’ll add a Build job to compile the code and generate checksums. We then use GitHub's Artifacts feature to "hand off" those files from the build job to the release job.
-
-Here is the updated configuration:
-
-YAML
-name: Credential Provider Kubernetes
-
-on:
-  push:
-    branches: [ main ]
-    tags:
-      - 'v*'
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  # 1. Quality Gate
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -57,7 +23,6 @@ jobs:
       - name: Run Tests
         run: make test
 
-  # 2. Build Binaries
   build:
     name: Build Binary
     needs: test
@@ -74,19 +39,18 @@ jobs:
       - name: Build
         # Update 'make build' to match your actual build command
         run: |
-          mkdir -p dist
+          mkdir -p build
           make build
-          # Example: If make build puts binaries in dist/
-          cd dist
+          # Example: If make build puts binaries in build/
+          cd build
           sha256sum * > checksums.txt
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: binaries
-          path: dist/
+          path: build/
 
-  # 3. Release (Only on Tags)
   release:
     name: Create GitHub Release
     needs: [test, build]
@@ -103,7 +67,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: binaries
-          path: dist
+          path: build
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -113,6 +77,6 @@ jobs:
           generate_release_notes: true
           # This glob pattern picks up the binaries and the checksum file
           files: |
-            dist/*
+            build/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
